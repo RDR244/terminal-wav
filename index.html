@@ -1,75 +1,222 @@
-<script>
-    const SECRET_CODE = "NEWMUSIC";
-
-    const logs = [
-        "INITIALIZING BOOT SEQUENCE...",
-        "LOADING OS... V8.4.2",
-        "CHECKING MEMORY... OK",
-        "SECURE CONNECTION... ESTABLISHED",
-        "DECRYPTING INTERFACE...",
-        "READY."
-    ];
-
-    const logContainer = document.getElementById('boot-logs');
-    let logIndex = 0;
-
-    function runBoot() {
-        if (logIndex < logs.length) {
-            let p = document.createElement('div');
-            p.className = 'typing';
-            p.innerText = "> " + logs[logIndex];
-            logContainer.appendChild(p);
-            logIndex++;
-            setTimeout(runBoot, 500);
-        } else {
-            setTimeout(() => {
-                const bootScreen = document.getElementById('boot-screen');
-                const loginBox = document.getElementById('login-box');
-                
-                if(bootScreen) bootScreen.style.opacity = '0';
-                
-                setTimeout(() => {
-                    if(bootScreen) bootScreen.style.display = 'none';
-                    if(loginBox) loginBox.style.display = 'block';
-                }, 500);
-            }, 800);
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TERMINAL_WAV_ACCESS</title>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --accent-blue: #00f2ff;
+            --dark-blue: #003b46;
+            --bg-black: #050505;
         }
-    }
 
-    // Standard way to start the script
-    window.addEventListener('load', runBoot);
-
-    function checkCode() {
-        const input = document.getElementById('passcode').value.toUpperCase().trim();
-        if (input === SECRET_CODE) {
-            document.getElementById('login-box').style.display = 'none';
-            document.getElementById('player-box').style.display = 'block';
-        } else {
-            document.getElementById('error').innerText = "!! INVALID_CREDENTIALS !!";
+        body { 
+            background-color: var(--bg-black);
+            color: var(--accent-blue);
+            font-family: 'VT323', monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            text-transform: uppercase;
+            overflow-x: hidden;
+            /* Prevents weird text resizing on mobile orientation change */
+            -webkit-text-size-adjust: 100%;
         }
-    }
 
-    function playPreview(id, startTime) {
-        const audio = document.getElementById(id);
-        const status = document.getElementById('status-msg');
+        /* Scanline Effect - Mobile Optimized */
+        body::before {
+            content: " ";
+            display: block;
+            position: fixed;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
+                        linear-gradient(90deg, rgba(0, 0, 255, 0.03), rgba(0, 255, 255, 0.01), rgba(0, 0, 255, 0.03));
+            z-index: 100;
+            background-size: 100% 3px, 3px 100%;
+            pointer-events: none; /* Critical: allows clicking buttons underneath */
+        }
+
+        #boot-screen {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: black;
+            z-index: 200;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            box-sizing: border-box;
+            font-size: 1.2rem;
+        }
+
+        .container { 
+            border: 2px solid var(--accent-blue);
+            background: rgba(0, 15, 30, 0.95);
+            padding: 20px;
+            box-shadow: 0 0 15px var(--accent-blue);
+            text-align: center;
+            width: 90%; /* Mobile friendly width */
+            max-width: 400px; /* Desktop cap */
+            display: none; 
+            box-sizing: border-box;
+            position: relative;
+            z-index: 5;
+        }
+
+        h2 { font-size: 2rem; margin-top: 0; text-shadow: 2px 2px var(--dark-blue); }
+
+        input { 
+            background: black;
+            border: 1px solid var(--accent-blue);
+            color: var(--accent-blue);
+            padding: 12px; /* Larger tap target */
+            font-family: 'VT323', monospace;
+            font-size: 1.4rem;
+            width: 100%;
+            margin-bottom: 20px;
+            outline: none;
+            box-sizing: border-box;
+            border-radius: 0; /* Prevents rounded corners on iOS */
+        }
+
+        button { 
+            background: var(--accent-blue);
+            color: black;
+            border: none;
+            padding: 15px 25px; /* Larger tap target for fingers */
+            font-family: 'VT323', monospace;
+            font-size: 1.2rem;
+            cursor: pointer;
+            font-weight: bold;
+            width: 100%; /* Full width on mobile looks better */
+            margin-bottom: 10px;
+            transition: all 0.2s;
+        }
+
+        button:active { background: white; } /* Better feedback for mobile touch */
+
+        .song-card { 
+            border: 1px solid var(--accent-blue);
+            margin-top: 15px;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        .song-card div { margin-bottom: 10px; font-size: 1.1rem; }
+
+        #status-msg { margin-top: 15px; color: #ff00ff; min-height: 1.2em; }
+
+        /* Animation for Terminal Text */
+        .typing {
+            overflow: hidden;
+            white-space: nowrap;
+            border-right: .15em solid var(--accent-blue);
+            animation: typing 1.5s steps(40, end), blink-caret .75s step-end infinite;
+            margin-bottom: 8px;
+        }
+
+        @keyframes typing { from { width: 0 } to { width: 100% } }
+        @keyframes blink-caret { from, to { border-color: transparent } 50% { border-color: var(--accent-blue); } }
+    </style>
+</head>
+<body>
+
+    <div id="boot-screen">
+        <div id="boot-logs"></div>
+    </div>
+
+    <div class="container" id="login-box">
+        <h2>ACCESS_DENIED</h2>
+        <p>IDENTIFICATION REQUIRED</p>
+        <input type="password" id="passcode" placeholder="ENTER_CODE" inputmode="text">
+        <button onclick="checkCode()">[ RUN_DECRYPT ]</button>
+        <p id="error" style="color: #ff3131; margin-top: 10px;"></p>
+    </div>
+
+    <div class="container player-section" id="player-box">
+        <h2>FILES_UNLOCKED</h2>
+        <p>DIRECTIVE: 5s_LIMIT</p>
         
-        // Stop and reset all other audio
-        document.querySelectorAll('audio').forEach(el => {
-            el.pause();
-            el.currentTime = 0;
-            el.oncanplay = null;
-            el.volume = 1.0;
-        });
+        <div class="song-card">
+            <div>FILE: TRACK_01.WAV</div>
+            <button onclick="playPreview('audio1', 68)">[ PREVIEW ]</button>
+            <audio id="audio1" src="song1.wav" preload="auto"></audio>
+        </div>
 
-        status.innerText = "> INITIALIZING DATA STREAM...";
+        <div class="song-card">
+            <div>FILE: TRACK_02.WAV</div>
+            <button onclick="playPreview('audio2', 11)">[ PREVIEW ]</button>
+            <audio id="audio2" src="song2.wav" preload="auto"></audio>
+        </div>
 
-        const startPlayback = () => {
-            audio.currentTime = startTime;
-            audio.volume = 1.0;
+        <p id="status-msg">> STANDBY</p>
+    </div>
+
+    <script>
+        const SECRET_CODE = "NEWMUSIC";
+
+        const logs = [
+            "INITIALIZING BOOT SEQUENCE...",
+            "LOADING OS... V8.4.2",
+            "CHECKING MEMORY... OK",
+            "SECURE CONNECTION... ESTABLISHED",
+            "DECRYPTING INTERFACE...",
+            "READY."
+        ];
+
+        const logContainer = document.getElementById('boot-logs');
+        let logIndex = 0;
+
+        function runBoot() {
+            if (logIndex < logs.length) {
+                let p = document.createElement('div');
+                p.className = 'typing';
+                p.innerText = "> " + logs[logIndex];
+                logContainer.appendChild(p);
+                logIndex++;
+                setTimeout(runBoot, 600);
+            } else {
+                setTimeout(() => {
+                    document.getElementById('boot-screen').style.opacity = '0';
+                    setTimeout(() => {
+                        document.getElementById('boot-screen').style.display = 'none';
+                        document.getElementById('login-box').style.display = 'block';
+                    }, 500);
+                }, 800);
+            }
+        }
+
+        window.onload = runBoot;
+
+        function checkCode() {
+            const input = document.getElementById('passcode').value.toUpperCase();
+            if (input === SECRET_CODE) {
+                document.getElementById('login-box').style.display = 'none';
+                document.getElementById('player-box').style.display = 'block';
+            } else {
+                document.getElementById('error').innerText = "!! INVALID_CREDENTIALS !!";
+            }
+        }
+
+        function playPreview(id, startTime) {
+            const audio = document.getElementById(id);
+            const status = document.getElementById('status-msg');
             
+            // Mobile audio fix: Pause others
+            document.querySelectorAll('audio').forEach(el => {
+                el.pause();
+                el.currentTime = 0;
+            });
+
+            audio.currentTime = startTime;
+            status.innerText = "> BUFFERING...";
+
             audio.play().then(() => {
-                status.innerText = "> PLAYING ENCRYPTED DATA...";
-                
+                status.innerText = "> PLAYING DATA...";
                 setTimeout(() => {
                     let fadeOut = setInterval(() => {
                         if (audio.volume > 0.1) {
@@ -77,26 +224,15 @@
                         } else {
                             clearInterval(fadeOut);
                             audio.pause();
-                            audio.volume = 1.0; 
-                            status.innerText = "> END_OF_PREVIEW";
+                            audio.volume = 1.0;
+                            status.innerText = "> END_OF_FILE";
                         }
-                    }, 100); 
-                }, 4000); 
+                    }, 100);
+                }, 4000);
             }).catch(e => {
                 status.innerText = "> ERROR: INTERACTION REQUIRED";
-                console.log("Audio play blocked:", e);
             });
-        };
-
-        // Mobile Fix: ReadyState check
-        if (audio.readyState >= 2) {
-            startPlayback();
-        } else {
-            audio.oncanplay = () => {
-                startPlayback();
-                audio.oncanplay = null;
-            };
-            audio.load(); 
         }
-    }
-</script>
+    </script>
+</body>
+</html>
