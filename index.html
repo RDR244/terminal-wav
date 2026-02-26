@@ -24,11 +24,10 @@
             margin: 0;
             text-transform: uppercase;
             overflow-x: hidden;
-            /* Prevents weird text resizing on mobile orientation change */
             -webkit-text-size-adjust: 100%;
         }
 
-        /* Scanline Effect - Mobile Optimized */
+        /* Scanline Effect */
         body::before {
             content: " ";
             display: block;
@@ -38,7 +37,7 @@
                         linear-gradient(90deg, rgba(0, 0, 255, 0.03), rgba(0, 255, 255, 0.01), rgba(0, 0, 255, 0.03));
             z-index: 100;
             background-size: 100% 3px, 3px 100%;
-            pointer-events: none; /* Critical: allows clicking buttons underneath */
+            pointer-events: none;
         }
 
         #boot-screen {
@@ -51,6 +50,7 @@
             padding: 20px;
             box-sizing: border-box;
             font-size: 1.2rem;
+            transition: opacity 0.5s;
         }
 
         .container { 
@@ -59,8 +59,8 @@
             padding: 20px;
             box-shadow: 0 0 15px var(--accent-blue);
             text-align: center;
-            width: 90%; /* Mobile friendly width */
-            max-width: 400px; /* Desktop cap */
+            width: 90%;
+            max-width: 400px;
             display: none; 
             box-sizing: border-box;
             position: relative;
@@ -73,31 +73,31 @@
             background: black;
             border: 1px solid var(--accent-blue);
             color: var(--accent-blue);
-            padding: 12px; /* Larger tap target */
+            padding: 12px;
             font-family: 'VT323', monospace;
             font-size: 1.4rem;
             width: 100%;
             margin-bottom: 20px;
             outline: none;
             box-sizing: border-box;
-            border-radius: 0; /* Prevents rounded corners on iOS */
+            border-radius: 0;
         }
 
         button { 
             background: var(--accent-blue);
             color: black;
             border: none;
-            padding: 15px 25px; /* Larger tap target for fingers */
+            padding: 15px 25px;
             font-family: 'VT323', monospace;
             font-size: 1.2rem;
             cursor: pointer;
             font-weight: bold;
-            width: 100%; /* Full width on mobile looks better */
+            width: 100%;
             margin-bottom: 10px;
             transition: all 0.2s;
         }
 
-        button:active { background: white; } /* Better feedback for mobile touch */
+        button:active { background: white; }
 
         .song-card { 
             border: 1px solid var(--accent-blue);
@@ -108,9 +108,8 @@
 
         .song-card div { margin-bottom: 10px; font-size: 1.1rem; }
 
-        #status-msg { margin-top: 15px; color: #ff00ff; min-height: 1.2em; }
+        #status-msg { margin-top: 15px; color: #ff00ff; min-height: 1.2em; font-weight: bold;}
 
-        /* Animation for Terminal Text */
         .typing {
             overflow: hidden;
             white-space: nowrap;
@@ -144,13 +143,19 @@
         <div class="song-card">
             <div>FILE: TRACK_01.WAV</div>
             <button onclick="playPreview('audio1', 68)">[ PREVIEW ]</button>
-            <audio id="audio1" src="song1.wav" preload="auto"></audio>
+            <audio id="audio1" src="song1.wav" preload="metadata"></audio>
         </div>
 
         <div class="song-card">
             <div>FILE: TRACK_02.WAV</div>
             <button onclick="playPreview('audio2', 11)">[ PREVIEW ]</button>
-            <audio id="audio2" src="song2.wav" preload="auto"></audio>
+            <audio id="audio2" src="song2.wav" preload="metadata"></audio>
+        </div>
+
+        <div class="song-card">
+            <div>FILE: TRACK_03.WAV</div>
+            <button onclick="playPreview('audio3', 15)">[ PREVIEW ]</button>
+            <audio id="audio3" src="song3.wav" preload="metadata"></audio>
         </div>
 
         <p id="status-msg">> STANDBY</p>
@@ -158,16 +163,7 @@
 
     <script>
         const SECRET_CODE = "NEWMUSIC";
-
-        const logs = [
-            "INITIALIZING BOOT SEQUENCE...",
-            "LOADING OS... V8.4.2",
-            "CHECKING MEMORY... OK",
-            "SECURE CONNECTION... ESTABLISHED",
-            "DECRYPTING INTERFACE...",
-            "READY."
-        ];
-
+        const logs = ["INITIALIZING BOOT SEQUENCE...", "LOADING OS... V8.4.2", "CHECKING MEMORY... OK", "SECURE CONNECTION... ESTABLISHED", "DECRYPTING INTERFACE...", "READY."];
         const logContainer = document.getElementById('boot-logs');
         let logIndex = 0;
 
@@ -175,9 +171,8 @@
             if (logIndex < logs.length) {
                 let p = document.createElement('div');
                 p.className = 'typing';
-                p.innerText = "> " + logs[logIndex];
+                p.innerText = "> " + logs[logIndex++];
                 logContainer.appendChild(p);
-                logIndex++;
                 setTimeout(runBoot, 600);
             } else {
                 setTimeout(() => {
@@ -189,11 +184,10 @@
                 }, 800);
             }
         }
-
         window.onload = runBoot;
 
         function checkCode() {
-            const input = document.getElementById('passcode').value.toUpperCase();
+            const input = document.getElementById('passcode').value.toUpperCase().trim();
             if (input === SECRET_CODE) {
                 document.getElementById('login-box').style.display = 'none';
                 document.getElementById('player-box').style.display = 'block';
@@ -206,32 +200,50 @@
             const audio = document.getElementById(id);
             const status = document.getElementById('status-msg');
             
-            // Mobile audio fix: Pause others
+            // Reset all other audio
             document.querySelectorAll('audio').forEach(el => {
                 el.pause();
                 el.currentTime = 0;
+                el.oncanplay = null; // Clear old listeners
             });
 
-            audio.currentTime = startTime;
-            status.innerText = "> BUFFERING...";
+            status.innerText = "> SEEKING DATA...";
+            
+            // Function to handle the actual playback
+            const startPlayback = () => {
+                audio.currentTime = startTime;
+                audio.volume = 1.0;
+                audio.play().then(() => {
+                    status.innerText = "> PLAYING DATA...";
+                    
+                    // 5-second preview rule (4s full + 1s fade)
+                    setTimeout(() => {
+                        let fadeOut = setInterval(() => {
+                            if (audio.volume > 0.1) {
+                                audio.volume -= 0.1;
+                            } else {
+                                clearInterval(fadeOut);
+                                audio.pause();
+                                audio.volume = 1.0;
+                                status.innerText = "> END_OF_FILE";
+                            }
+                        }, 100);
+                    }, 4000);
+                }).catch(e => {
+                    status.innerText = "> ERROR: INTERACTION REQUIRED";
+                });
+            };
 
-            audio.play().then(() => {
-                status.innerText = "> PLAYING DATA...";
-                setTimeout(() => {
-                    let fadeOut = setInterval(() => {
-                        if (audio.volume > 0.1) {
-                            audio.volume -= 0.1;
-                        } else {
-                            clearInterval(fadeOut);
-                            audio.pause();
-                            audio.volume = 1.0;
-                            status.innerText = "> END_OF_FILE";
-                        }
-                    }, 100);
-                }, 4000);
-            }).catch(e => {
-                status.innerText = "> ERROR: INTERACTION REQUIRED";
-            });
+            // Mobile Fix: Wait for metadata before seeking
+            if (audio.readyState >= 2) {
+                startPlayback();
+            } else {
+                audio.oncanplay = () => {
+                    startPlayback();
+                    audio.oncanplay = null;
+                };
+                audio.load();
+            }
         }
     </script>
 </body>
