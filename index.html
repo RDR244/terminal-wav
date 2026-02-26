@@ -1,98 +1,102 @@
 <script>
-        const SECRET_CODE = "NEWMUSIC";
+    const SECRET_CODE = "NEWMUSIC";
 
-        const logs = [
-            "INITIALIZING BOOT SEQUENCE...",
-            "LOADING OS... V8.4.2",
-            "CHECKING MEMORY... OK",
-            "SECURE CONNECTION... ESTABLISHED",
-            "DECRYPTING INTERFACE...",
-            "READY."
-        ];
+    const logs = [
+        "INITIALIZING BOOT SEQUENCE...",
+        "LOADING OS... V8.4.2",
+        "CHECKING MEMORY... OK",
+        "SECURE CONNECTION... ESTABLISHED",
+        "DECRYPTING INTERFACE...",
+        "READY."
+    ];
 
-        const logContainer = document.getElementById('boot-logs');
-        let logIndex = 0;
+    const logContainer = document.getElementById('boot-logs');
+    let logIndex = 0;
 
-        function runBoot() {
-            if (logIndex < logs.length) {
-                let p = document.createElement('div');
-                p.className = 'typing';
-                p.innerText = "> " + logs[logIndex];
-                logContainer.appendChild(p);
-                logIndex++;
-                setTimeout(runBoot, 600);
-            } else {
-                setTimeout(() => {
-                    document.getElementById('boot-screen').style.opacity = '0';
-                    setTimeout(() => {
-                        document.getElementById('boot-screen').style.display = 'none';
-                        document.getElementById('login-box').style.display = 'block';
-                    }, 500);
-                }, 800);
-            }
-        }
-
-        window.onload = runBoot;
-
-        function checkCode() {
-            const input = document.getElementById('passcode').value.toUpperCase();
-            if (input === SECRET_CODE) {
-                document.getElementById('login-box').style.display = 'none';
-                document.getElementById('player-box').style.display = 'block';
-            } else {
-                document.getElementById('error').innerText = "!! INVALID_CREDENTIALS !!";
-            }
-        }
-
-        // --- FIXED AUDIO FUNCTION ---
-        function playPreview(id, startTime) {
-            const audio = document.getElementById(id);
-            const status = document.getElementById('status-msg');
-            
-            // 1. Stop and reset all other audio
-            document.querySelectorAll('audio').forEach(el => {
-                el.pause();
-                el.oncanplay = null; // Clear previous listeners
-                el.volume = 1.0;
-            });
-
-            status.innerText = "> INITIALIZING DATA STREAM...";
-
-            // 2. This function handles the jump and the play
-            const startPlayback = () => {
-                audio.currentTime = startTime;
-                audio.volume = 1.0;
+    function runBoot() {
+        if (logIndex < logs.length) {
+            let p = document.createElement('div');
+            p.className = 'typing';
+            p.innerText = "> " + logs[logIndex];
+            logContainer.appendChild(p);
+            logIndex++;
+            setTimeout(runBoot, 500);
+        } else {
+            setTimeout(() => {
+                const bootScreen = document.getElementById('boot-screen');
+                const loginBox = document.getElementById('login-box');
                 
-                audio.play().then(() => {
-                    status.innerText = "> PLAYING ENCRYPTED DATA...";
-                    
-                    // 3. Handle the 5-second limit (4s play + 1s fade)
-                    setTimeout(() => {
-                        let fadeOut = setInterval(() => {
-                            if (audio.volume > 0.1) {
-                                audio.volume -= 0.1;
-                            } else {
-                                clearInterval(fadeOut);
-                                audio.pause();
-                                audio.volume = 1.0; 
-                                status.innerText = "> END_OF_PREVIEW";
-                            }
-                        }, 100); 
-                    }, 4000); 
-                }).catch(e => {
-                    status.innerText = "> ERROR: INTERACTION REQUIRED";
-                });
-            };
-
-            // 4. Critical Fix: Check if metadata is loaded before jumping time
-            if (audio.readyState >= 2) {
-                startPlayback();
-            } else {
-                audio.oncanplay = () => {
-                    startPlayback();
-                    audio.oncanplay = null; // Clear listener so it doesn't fire again
-                };
-                audio.load(); // Force the browser to start loading the file
-            }
+                if(bootScreen) bootScreen.style.opacity = '0';
+                
+                setTimeout(() => {
+                    if(bootScreen) bootScreen.style.display = 'none';
+                    if(loginBox) loginBox.style.display = 'block';
+                }, 500);
+            }, 800);
         }
-    </script>
+    }
+
+    // Standard way to start the script
+    window.addEventListener('load', runBoot);
+
+    function checkCode() {
+        const input = document.getElementById('passcode').value.toUpperCase().trim();
+        if (input === SECRET_CODE) {
+            document.getElementById('login-box').style.display = 'none';
+            document.getElementById('player-box').style.display = 'block';
+        } else {
+            document.getElementById('error').innerText = "!! INVALID_CREDENTIALS !!";
+        }
+    }
+
+    function playPreview(id, startTime) {
+        const audio = document.getElementById(id);
+        const status = document.getElementById('status-msg');
+        
+        // Stop and reset all other audio
+        document.querySelectorAll('audio').forEach(el => {
+            el.pause();
+            el.currentTime = 0;
+            el.oncanplay = null;
+            el.volume = 1.0;
+        });
+
+        status.innerText = "> INITIALIZING DATA STREAM...";
+
+        const startPlayback = () => {
+            audio.currentTime = startTime;
+            audio.volume = 1.0;
+            
+            audio.play().then(() => {
+                status.innerText = "> PLAYING ENCRYPTED DATA...";
+                
+                setTimeout(() => {
+                    let fadeOut = setInterval(() => {
+                        if (audio.volume > 0.1) {
+                            audio.volume -= 0.1;
+                        } else {
+                            clearInterval(fadeOut);
+                            audio.pause();
+                            audio.volume = 1.0; 
+                            status.innerText = "> END_OF_PREVIEW";
+                        }
+                    }, 100); 
+                }, 4000); 
+            }).catch(e => {
+                status.innerText = "> ERROR: INTERACTION REQUIRED";
+                console.log("Audio play blocked:", e);
+            });
+        };
+
+        // Mobile Fix: ReadyState check
+        if (audio.readyState >= 2) {
+            startPlayback();
+        } else {
+            audio.oncanplay = () => {
+                startPlayback();
+                audio.oncanplay = null;
+            };
+            audio.load(); 
+        }
+    }
+</script>
